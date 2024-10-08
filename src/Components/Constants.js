@@ -1,25 +1,10 @@
-import logo from './logo.svg';
-import './App.css';
-
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+const ThemeColors={
+background_gradient:"linear-gradient(270deg, #CE79CA 0%, #4AA8DF 100%);",
+black:"#052137",
+disabled_black:"#3B3B3B",
+yellow:"#FFBD45",
+red:"#FF6C6C",
+grey:"#F0F4F8"
 }
 
-export default App;
+export {ThemeColors}
