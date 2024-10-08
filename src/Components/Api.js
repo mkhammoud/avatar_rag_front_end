@@ -1,6 +1,21 @@
 const backend_url=process.env.REACT_APP_BACKEND_URL; // BACKEND URL
 
 
+// FUNCTION THAT WILL INTERRUPT THE AVATAR 
+
+async function interruptAvatar(avatar_id,avatar_provider){
+
+  try{
+   
+    return true;
+    
+  }catch (error) {
+    console.error('Error fetching video and text:', error);
+  }
+  
+  }
+
+
 // FUNCTION THAT WILL CONNECT TO AN AVATAR PROVIDER
 async function startSessionAPI(avatar_id,avatar_provider){
 

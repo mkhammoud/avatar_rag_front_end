@@ -27,9 +27,9 @@ function Chat() {
   const scrollBottomRef = useRef(null); // REFERENCE FOR THE LAST MESSAGE IN CHAT HISTORY USEFULL TO SCOLL TO BOTTOM ON EVERY NEW MESSAGE RECEIVED
   const [chatHistory,setChatHistory]=useState([]) // CHAT HISTORY STATE
   const [videoQueue, setVideoQueue] = useState([]); // VIDEO QUEUE
-  const [currentVideo, setCurrentVideo] = useState(null); // CURRENT VIDEO
-  const [nextVideo, setNextVideo] = useState(null);  // State to hold the next video URL
- 
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0); // Track the current video index
+  const avatarVideoRef1 = useRef(null); // Reference for the first video element
+  const avatarVideoRef2 = useRef(null);
 
    // WEBSOCKET CODE 
    useEffect(() => {
@@ -54,74 +54,51 @@ function Chat() {
     };
   }, []);
 
-// Function to handle video end event
-
-
-// Start playing the next video when the current one ends
-useEffect(() => {
-  if (videoQueue.length > 0 && !currentVideo) {
-    setCurrentVideo(videoQueue[0]); // Start with the first video in the queue
-    setNextVideo(videoQueue[1] || null); // Preload the next video
-  }
-}, [videoQueue, currentVideo]);
-
-
-useEffect(() => { 
-  const videoElement = avatarVideoRef.current;
-
-  const handleCanPlayThrough = () => {
-    videoElement.play(); // Play the video when it's ready
-  };
-
-  const handleVideoEnd = () => {
-    videoElement.pause(); 
-
-    setVideoQueue((prevQueue) => {
-      const newQueue = [...prevQueue];
-      newQueue.shift(); // Remove the first video (FIFO)
-  
-      return newQueue; // Return the updated queue
-    });  
-    
-    // Set the current video to the preloaded next video
-    setCurrentVideo(videoQueue[1] || null); // Set current video to the next video in the queue
-    setNextVideo(videoQueue[2] || null); // Preload the next video (the one after the next)
-  };
-
-
-
-  if (currentVideo) {
-    videoElement.src = currentVideo; // Set the video source
-    videoElement.load(); // Load the video
-
-    videoElement.style.display = 'block'; // Show the video
-    // Preload the next video if it exists
-    if (nextVideo) {
-      const nextVideoTemp = document.createElement('video');
-      nextVideoTemp.src = nextVideo;
-      nextVideoTemp.load();
+  useEffect(() => {
+    if (videoQueue.length > 0) {
+      setCurrentVideoIndex(0); // Start with the first video
     }
+  }, [videoQueue]);
 
-    videoElement.addEventListener('canplaythrough', handleCanPlayThrough);
-    videoElement.addEventListener('ended', handleVideoEnd); // Add event listener for video end
+  useEffect(() => {
+    const videoElement1 = avatarVideoRef1.current;
+    const videoElement2 = avatarVideoRef2.current;
 
-    // Clean up the event listeners when the component unmounts or currentVideo changes
-    return () => {
-      videoElement.removeEventListener('canplaythrough', handleCanPlayThrough);
-      videoElement.removeEventListener('ended', handleVideoEnd);
+    const handleCanPlayThrough = (videoElement) => {
+      videoElement.play(); // Play the video when it's ready
     };
-  } else {
-    if(nextVideo === null){
-      videoElement.style.display = 'none'; // Hide the video if there is no current video
 
+    const handleVideoEnd = () => {
+      // Move to the next video in the sequence
+      setCurrentVideoIndex((prevIndex) => (prevIndex + 1) % 2); // Alternate between 0 and 1
+    };
+
+    // Set the source of the current video element based on currentVideoIndex
+    if (videoQueue.length > 0) {
+      const currentVideoElement = currentVideoIndex === 0 ? videoElement1 : videoElement2;
+      currentVideoElement.src = videoQueue[currentVideoIndex]; // Set the video source
+      currentVideoElement.load(); // Load the video
+
+      // Add event listeners for the current video element
+      currentVideoElement.addEventListener('canplaythrough', () => handleCanPlayThrough(currentVideoElement));
+      currentVideoElement.addEventListener('ended', handleVideoEnd);
+
+      // Preload the next video element
+      const nextVideoIndex = (currentVideoIndex + 1) % 2; // Alternate the next video index
+      const nextVideoElement = nextVideoIndex === 0 ? videoElement1 : videoElement2;
+      nextVideoElement.src = videoQueue[nextVideoIndex]; // Set the next video source
+      nextVideoElement.load(); // Load the next video
     }
-    
-  }
-}, [currentVideo]);
 
+    // Cleanup event listeners on unmount
+    return () => {
+      videoElement1.removeEventListener('canplaythrough', () => handleCanPlayThrough(videoElement1));
+      videoElement2.removeEventListener('canplaythrough', () => handleCanPlayThrough(videoElement2));
+      videoElement1.removeEventListener('ended', handleVideoEnd);
+      videoElement2.removeEventListener('ended', handleVideoEnd);
+    };
+  }, [currentVideoIndex, videoQueue]);
 
- 
-  
   // FUNCTION TO SCROLL AT THE BOTTOM OF CHAT HISTORY
   useEffect(() => {
 
@@ -182,7 +159,6 @@ useEffect(() => {
   useEffect(()=>{
     
     if(avatarConnectionStatus==="disconnected"){
-      setCurrentVideo(undefined)
       setAvatarIdleVideo(undefined)
 
     }
@@ -289,12 +265,8 @@ useEffect(() => {
 
 <video id="avatar-video-idle" src={avatarIdleVideo} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0,}} width="100%" height="100%" autoPlay muted loop preload='auto'></video>
 
-<video id="avatar-video-speaking" ref={avatarVideoRef} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%" autoPlay preload='auto' ></video>
-
-{nextVideo && (
-        <video style={{ display: 'none' }} src={nextVideo}  onCanPlay={handleNextVideoCanPlay}      
- preload="auto"></video>
-      )}
+<video id="avatar-video-speaking" ref={avatarVideoRef1} style={{display:"none",objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%"  preload='auto' ></video>
+<video id="avatar-video-speaking" ref={avatarVideoRef2} style={{display:"none",objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%" preload='auto' ></video>
 
   </Box>
 
