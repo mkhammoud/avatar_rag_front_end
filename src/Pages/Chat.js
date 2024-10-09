@@ -4,8 +4,8 @@ import Grid from '@mui/material/Grid2';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import { useEffect, useState,useRef } from 'react';
-import { getAvatarIdleVideoAPI, handleUserQueryAPI, startSessionAPI } from '../Components/Api';
-import { gradient_background, ThemeColors } from '../Components/Constants';
+import { getAvatarIdleVideoAPI, handleUserQueryAPI, startSessionAPI ,getHeygenAccessTokenAPI} from '../Components/Api';
+import { gradient_background, HeygenAvatars, HeyGenVoices, LocalAvatars, LocalVoices, ThemeColors } from '../Components/Constants';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -13,7 +13,10 @@ import PersonIcon from '@mui/icons-material/Person';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import { io } from 'socket.io-client';
-
+import StreamingAvatar, {AvatarQuality, StreamingEvents, TaskType, VoiceEmotion} from "@heygen/streaming-avatar";
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import Select from '@mui/material/Select'
 
 function Chat() {
 
@@ -22,14 +25,174 @@ function Chat() {
   const [avatarProvider,setAvatarProvider]=useState("local"); // AVATAR PROVIDER (LOCAL, HEYGEN, AZURE)
   const [avatarConnectionStatus,setAvatarConnectionStatus]=useState("disconnected"); // AVATAR CONNECTION STATUS (connected,disconnected) WILL BE USEFUL FOR LIVE AVATAR CONNECTION MAINLY
   const [avatarStatus,setAvatarStatus]=useState("idle");  // AVATAR STATUS (IDLE, SPEAKING)
-  const [avatarId,setAvatarId]=useState("default_avatar"); // AVATAR ID
-  const avatarVideoRef=useRef(null); // VIDEO OBJECT REFERENCE
+  const [avatarId,setAvatarId]=useState("lisa_casual_1080"); // AVATAR ID
+  const [voiceId,setVoiceId]=useState("7306"); // AVATAR ID
   const scrollBottomRef = useRef(null); // REFERENCE FOR THE LAST MESSAGE IN CHAT HISTORY USEFULL TO SCOLL TO BOTTOM ON EVERY NEW MESSAGE RECEIVED
   const [chatHistory,setChatHistory]=useState([]) // CHAT HISTORY STATE
   const [videoQueue, setVideoQueue] = useState([]); // VIDEO QUEUE
   const [currentVideo, setCurrentVideo] = useState(null); // CURRENT VIDEO
   const [nextVideo, setNextVideo] = useState(null);  // State to hold the next video URL
- 
+  
+  const avatarVideoRef=useRef(null); // VIDEO OBJECT REFERENCE
+  const [voices,setVoices]=useState(LocalVoices); // LIST OF VOICES
+  const [avatars,setAvatars]=useState(LocalAvatars); // LIST OF AVATARS
+
+
+  // HEYGEN AVATAR 
+  const[heygenAvatar,setHeygenAvatar]=useState();
+  const heygenAvatarVideoRef=useRef(null);
+  const [heygenStream,setHeygenStream]=useState(undefined); // HEYGEN STREAM OBBJECT
+  const [heygenSessionData, setHeygenSessionData] = useState(undefined); // HEYGEN AVATAR SESSION DATA
+
+
+  // FUNCTION THAT TRACK CHANGE OF AVATAR PROVIDER
+  const handleAvatarProviderChange = (event) => {
+    setAvatarProvider(event.target.value);
+  };
+
+  // FUNCTION THAT TRACK CHANGE OF AVATAR PROVIDER
+  const handleVoiceChange = (event) => {
+    setVoiceId(event.target.value);
+  };
+
+  // FUNCTION THAT TRACK CHANGE OF AVATAR PROVIDER
+  const handleAvatarIdChange = (event) => {
+    setAvatarId(event.target.value);
+  };
+    
+
+  // FUNCTION THAT EXECUTE BASED ON AVATAR PROVIDER CHANGES
+  useEffect(()=>{
+    
+    if(avatarProvider==="local"){
+      setAvatars(LocalAvatars)
+      setVoices(LocalVoices)
+
+     setAvatarId(LocalAvatars[0].id)
+      setVoiceId(LocalVoices[0].id)
+
+    } else if(avatarProvider==="heygen"){
+      setAvatars(HeygenAvatars)
+      setVoices(HeyGenVoices)
+
+      setAvatarId(HeygenAvatars[0].id)
+       setVoiceId(HeyGenVoices[0].id)
+    }
+
+  },[avatarProvider])
+
+
+  // START SESSION FUNCTION FOR HEYGEN 
+  async function startHeygenSession() {
+    //setIsLoadingSession(true);
+    const newToken = await getHeygenAccessTokenAPI();
+    
+     console.log(newToken);
+
+    setHeygenAvatar(new StreamingAvatar({
+      token: newToken,
+    }))
+
+  } 
+
+  useEffect(()=>{
+
+    if(heygenAvatar){
+      console.log(heygenAvatar)
+
+
+    heygenAvatar?.on(StreamingEvents.AVATAR_START_TALKING, (e) => {
+      console.log("heygenAvatar started talking", e);
+    });
+    heygenAvatar?.on(StreamingEvents.AVATAR_STOP_TALKING, (e) => {
+      console.log("heygenAvatar stopped talking", e);
+    });
+    heygenAvatar?.on(StreamingEvents.STREAM_DISCONNECTED, () => {
+      console.log("Stream disconnected");
+      setAvatarConnectionStatus("disconnected")
+      endHeygenAvatarSession();
+    });
+    heygenAvatar?.on(StreamingEvents.STREAM_READY, (event) => {
+      console.log(">>>>> Stream ready:", event.detail);
+      setHeygenStream(event.detail);
+      setAvatarConnectionStatus("connected")
+
+    });
+    heygenAvatar?.on(StreamingEvents.USER_START, (event) => {
+      console.log(">>>>> User started talking:", event);
+      //setIsUserTalking(true);
+    });
+    heygenAvatar?.on(StreamingEvents.USER_STOP, (event) => {
+      console.log(">>>>> User stopped talking:", event);
+      //setIsUserTalking(false);
+    });
+    
+    async function startSession(){
+      try {
+        const res = await heygenAvatar?.createStartAvatar({
+          quality: AvatarQuality.High,
+          avatarName: avatarId,
+          voice: {
+            voiceId:voiceId,
+            rate: 1, // 0.5 ~ 1.5
+          },
+          language: 'en',
+        });
+  
+        setHeygenSessionData(res);
+        // default to voice mode
+        //await heygenAvatar?.startVoiceChat();
+        //setChatMode("text_mode");
+      } catch (error) {
+        console.error("Error starting avatar session:", error);
+      } finally {
+        //setIsLoadingSession(false);
+      }     
+    }
+
+    startSession()
+
+    
+  }
+  },[heygenAvatar])
+
+  async function handleHeygenAvatarSpeak(text) {
+    //setIsLoadingRepeat(true);
+    if (!heygenAvatar) {
+      console.log("heygenAvatar API not initialized");
+      return;
+    }
+    // speak({ text: text, task_type: TaskType.REPEAT })
+    await heygenAvatar?.speak({ text: text,task_type: TaskType.REPEAT  }).catch((e) => {
+      console.log(e.message);
+    });
+    //setIsLoadingRepeat(false);
+  }
+  async function handleHeygenAvatarInterrupt() {
+    if (!heygenAvatar) {
+      console.log("heygenAvatar API not initialized");
+      return;
+    }
+    await heygenAvatar?.interrupt().catch((e) => {
+        console.log(e.message);
+      });
+  }
+  async function endHeygenAvatarSession() {
+    console.log("END AVATAR")
+    await heygenAvatar?.stopAvatar();
+    setAvatarConnectionStatus("disconnected")
+    setHeygenStream(undefined);
+  }
+
+  useEffect(() => {
+    if (heygenStream && heygenAvatarVideoRef.current) {
+      heygenAvatarVideoRef.current.srcObject = heygenStream;
+      heygenAvatarVideoRef.current.onloadedmetadata = () => {
+        heygenAvatarVideoRef.current.play();
+      };
+    }
+  }, [heygenAvatarVideoRef, heygenStream]);
+
 
    // WEBSOCKET CODE 
    useEffect(() => {
@@ -146,19 +309,38 @@ useEffect(() => {
 
   // START SESSION BUTTON CLICK EVENT
   const handleStartSession= async ()=>{
-  
-    const result=await startSessionAPI(avatarId,avatarProvider)
+     
+    if(avatarProvider==="local"){
+      getAvatarIdleVideo(avatarId)
+      setAvatarStatus("idle")
+      setAvatarConnectionStatus("connected")
+    } 
 
-    if(result){
-    setAvatarConnectionStatus("connected") 
+    else if(avatarProvider==="heygen"){
+      await startHeygenSession();
     }
 
   }
 
-  const handleStopSession= async ()=>{
+  // FUNCTION TO HANDLE LOCAL AVATAR STOP SESSION
 
+  const hanldeStopLocalAvatar=async()=>{
+    setAvatarIdleVideo(null)
+    setVideoQueue([])
     setAvatarConnectionStatus("disconnected")
     setAvatarStatus("idle") 
+  } 
+
+
+  // STOP SESSION BUTTON CLICK EVENT
+  const handleStopSession= async ()=>{
+    
+    if(avatarProvider==="local"){
+      hanldeStopLocalAvatar()
+    } else if(avatarProvider==="heygen"){
+      await endHeygenAvatarSession();
+    }
+  
  
 
   }
@@ -169,7 +351,7 @@ useEffect(() => {
     try{
 
       const video= await getAvatarIdleVideoAPI(avatarId)  
-         setAvatarIdleVideo(video?.video_url)
+      setAvatarIdleVideo(video?.video_url)
 
     }catch (error) {
       console.error('Error fetching video and text:', error);
@@ -187,22 +369,10 @@ useEffect(() => {
 
     }
 
-    else{
-      if(avatarProvider==="local"){
-        getAvatarIdleVideo(avatarId)
-     }
-
-    }
-      
-   
 
   },[avatarConnectionStatus])
 
-  // FUNCTION WHEN WE WANT TO MAKE THE AVATAR IDLE
-  function avatarIdle(){
-      getAvatarIdleVideo(avatarId);
-     setAvatarStatus("idle");
-  }
+ 
 
   console.log("Chat History", chatHistory)
 
@@ -210,15 +380,6 @@ useEffect(() => {
 
   // HANDLE EVENT WHEN THE AVATAR IS IN IDLE MODE
   useEffect(()=>{
-
-    if(avatarConnectionStatus==="disconnected"){
-      return
-    }
-
-    if(avatarStatus==="idle"){
-      console.log("idle");
-      avatarIdle();
-    }
 
   },[avatarConnectionStatus,avatarStatus])
 
@@ -247,35 +408,97 @@ useEffect(() => {
     
     setUserTextInput('')
 
-    let result=await handleUserQueryAPI(messages);
+    let result=await handleUserQueryAPI(messages,avatarProvider,avatarId,voiceId);
     
-    if(result){
+   
+    
+    if(result?.text_response){
       addMessage("assistant",result?.text_response)
       setAvatarStatus("speaking")
+
+      if(avatarProvider==="heygen"){
+        await handleHeygenAvatarSpeak(result?.text_response);
+      }
+
     }
+
+  
 
 
   }
 
-  const handleNextVideoCanPlay = () => {
-    // This can be used to add any logic when the next video is ready to play
-  };
-
   return (
- 
+
 
  <Box display={"flex"} flexDirection={"column"} justifyContent={"center"} alignItems={"center"} flex={1} margin={0} padding={0} height={"100vh"} sx={{background:ThemeColors.background_gradient}} gap={2}>
  
+
  {/* AVATAR VIDEO SECTION */}
   
   <Box width={"80%"} height={"80%"} >
 
+<Box display={"flex"}  alignItems={"center"} gap={2} >
 {avatarConnectionStatus ==="connected" &&
-<Button id="start-session-btn" onClick={()=>{handleStopSession()}} variant='contained' sx={{background:ThemeColors.black,color:"white"}} startIcon={<StopIcon />}>Start Session</Button>}
+<Button id="start-session-btn" onClick={()=>{handleStopSession()}} variant='contained' sx={{background:ThemeColors.black,color:"white"}} startIcon={<StopIcon />}>Stop Session</Button>}
 
 {avatarConnectionStatus ==="disconnected" &&
 <Button id="start-session-btn" onClick={()=>{handleStartSession()}} variant='contained' sx={{background:ThemeColors.black,color:"white"}} startIcon={<PlayArrowIcon />}>Start Session</Button>}
 
+<FormControl sx={{ m: 1, minWidth: 120 }} size="small">
+<InputLabel id="vatar-provider-label">Avatar Provider</InputLabel>
+
+      <Select
+        labelId="avatar-provider-label"
+        id="avatar-provider-label-select"
+        value={avatarProvider}
+        label="Age"
+        onChange={handleAvatarProviderChange}
+      >
+        <MenuItem value={"local"}>On Premises</MenuItem>
+        <MenuItem value={"heygen"}>Heygen Streaming Avatar</MenuItem>
+        <MenuItem value={"azure"}>Azure Streaming Avatar</MenuItem>
+      </Select>
+    </FormControl>
+
+    <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
+<InputLabel id="vatar-provider-label">Avatars</InputLabel>
+
+      <Select
+        labelId="avatar-provider-label"
+        id="avatar-provider-label-select"
+        value={avatarId}
+        label="Age"
+        onChange={handleAvatarIdChange}
+      >
+          {avatars && avatars.map((avatar,index)=>(
+          <MenuItem key={index} value={avatar.id}>{avatar.name}</MenuItem>
+        ))}
+
+
+      </Select>
+    </FormControl>
+
+    <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
+<InputLabel id="vatar-provider-label">Voices</InputLabel>
+
+      <Select
+        labelId="avatar-provider-label"
+        id="avatar-provider-label-select"
+        value={voiceId}
+        label="Age"
+        onChange={handleVoiceChange}
+      >
+          {voices && voices.map((voice,index)=>(
+          <MenuItem key={index} value={voice.id}>{voice.name}</MenuItem>
+        ))}
+
+      </Select>
+    </FormControl>
+
+
+
+
+</Box>
 
     
  <Grid container sx={{margin:0,padding:0}} height={"100%"} >
@@ -287,14 +510,25 @@ useEffect(() => {
   <Box display={"flex"} justifyContent={"center"} alignItems={"center"}  sx={{boxSizing: 'border-box',height:"100%",position:"relative"}} >
   
 
+{avatarProvider==="local" &&
+<>
 <video id="avatar-video-idle" src={avatarIdleVideo} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0,}} width="100%" height="100%" autoPlay muted loop preload='auto'></video>
 
 <video id="avatar-video-speaking" ref={avatarVideoRef} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%" autoPlay preload='auto' ></video>
 
 {nextVideo && (
-        <video style={{ display: 'none' }} src={nextVideo}  onCanPlay={handleNextVideoCanPlay}      
- preload="auto"></video>
+        <video style={{ display: 'none' }} src={nextVideo} preload="auto"></video>
       )}
+</>
+}
+
+{avatarProvider==="heygen" &&
+<>
+<video id="avatar-video-idle" ref={heygenAvatarVideoRef} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0,}} width="100%" height="100%"></video>
+
+</>
+}
+
 
   </Box>
 
