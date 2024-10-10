@@ -29,11 +29,17 @@ function Chat() {
   const [voiceId,setVoiceId]=useState("7306"); // AVATAR ID
   const scrollBottomRef = useRef(null); // REFERENCE FOR THE LAST MESSAGE IN CHAT HISTORY USEFULL TO SCOLL TO BOTTOM ON EVERY NEW MESSAGE RECEIVED
   const [chatHistory,setChatHistory]=useState([]) // CHAT HISTORY STATE
+  
+  
   const [videoQueue, setVideoQueue] = useState([]); // VIDEO QUEUE
   const [currentVideo, setCurrentVideo] = useState(null); // CURRENT VIDEO
   const [nextVideo, setNextVideo] = useState(null);  // State to hold the next video URL
-  
-  const avatarVideoRef=useRef(null); // VIDEO OBJECT REFERENCE
+  const avatarIdleVideoRef=useRef(null);
+  const avatarVideoRef1=useRef(null); // VIDEO OBJECT REFERENCE
+  const avatarVideoRef2=useRef(null); // VIDEO OBJECT REFERENCE
+  const [currentVideoRef, setCurrentVideoRef] = useState(avatarVideoRef1);
+
+
   const [voices,setVoices]=useState(LocalVoices); // LIST OF VOICES
   const [avatars,setAvatars]=useState(LocalAvatars); // LIST OF AVATARS
 
@@ -236,6 +242,7 @@ useEffect(() => {
 }, [videoQueue, currentVideo]);
 
 
+{/* 
 useEffect(() => { 
   const videoElement = avatarVideoRef.current;
 
@@ -287,7 +294,80 @@ useEffect(() => {
     }
     
   }
-}, [currentVideo]);
+}, [currentVideo]); */}
+
+
+
+useEffect(() => {
+
+
+  const videoElement = currentVideoRef.current;
+  const otherVideoRef =
+    currentVideoRef === avatarVideoRef1 ? avatarVideoRef2 : avatarVideoRef1;
+  const otherVideoElement = otherVideoRef.current;
+
+  const handleCanPlayThrough = () => {
+        // Show the current video element and hide the other
+    videoElement.play(); // Play the video when it's ready
+    videoElement.style.display = 'block';
+
+  };
+
+  const handleVideoEnd = () => {
+
+    videoElement.pause();
+
+    // Update the video queue
+    setVideoQueue((prevQueue) => {
+      const newQueue = [...prevQueue];
+      newQueue.shift(); // Remove the first video (FIFO)
+      return newQueue; // Return the updated queue
+    });
+
+    // Switch the video element
+    setCurrentVideoRef((prevRef) =>
+      prevRef === avatarVideoRef1 ? avatarVideoRef2 : avatarVideoRef1
+    );
+
+    // Set current and next videos from the queue
+    setCurrentVideo(videoQueue[1] || null); // Set the current video to the next one
+    setNextVideo(videoQueue[2] || null); // Preload the next video
+  };
+
+  if (currentVideo) {
+
+
+
+    // Set and load the video for the current video element
+    videoElement.src = currentVideo;
+    videoElement.load();
+    
+
+    otherVideoElement.style.display = 'none'; // Hide the non-playing video
+
+    // Preload the next video on the other (hidden) video element
+    if (nextVideo) {
+      otherVideoElement.src = nextVideo;
+      otherVideoElement.load();
+    }
+
+    videoElement.addEventListener('canplaythrough', handleCanPlayThrough);
+    videoElement.addEventListener('ended', handleVideoEnd);
+
+    // Clean up the event listeners when the component unmounts or currentVideo changes
+    return () => {
+      videoElement.removeEventListener('canplaythrough', handleCanPlayThrough);
+      videoElement.removeEventListener('ended', handleVideoEnd);
+    };
+  } else if (!nextVideo) {
+    otherVideoElement.style.display = 'none'; // Hide the video if there are no videos
+  } else if(!currentVideo){
+    videoElement.style.display='none';
+
+
+  
+  }
+}, [currentVideo, currentVideoRef]);
 
 
  
@@ -519,9 +599,12 @@ useEffect(() => {
 
 {avatarProvider==="local" &&
 <>
-<video id="avatar-video-idle" src={avatarIdleVideo} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0,}} width="100%" height="100%" autoPlay muted loop preload='auto'></video>
+<video id="avatar-video-idle" ref={avatarIdleVideoRef} src={avatarIdleVideo} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0,}} width="100%" height="100%" autoPlay muted loop preload='auto'></video>
 
-<video id="avatar-video-speaking" ref={avatarVideoRef} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%" preload='auto' ></video>
+<video id="avatar-video-speaking" ref={avatarVideoRef1} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%" preload='auto' ></video>
+
+<video id="avatar-video-speaking" ref={avatarVideoRef2} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%" preload='auto' ></video>
+
 
 {nextVideo && (
         <video style={{ display: 'none' }} src={nextVideo} preload="auto"></video>
