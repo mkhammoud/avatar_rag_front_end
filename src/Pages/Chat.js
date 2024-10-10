@@ -25,7 +25,7 @@ function Chat() {
   const [avatarProvider,setAvatarProvider]=useState("local"); // AVATAR PROVIDER (LOCAL, HEYGEN, AZURE)
   const [avatarConnectionStatus,setAvatarConnectionStatus]=useState("disconnected"); // AVATAR CONNECTION STATUS (connected,disconnected) WILL BE USEFUL FOR LIVE AVATAR CONNECTION MAINLY
   const [avatarStatus,setAvatarStatus]=useState("idle");  // AVATAR STATUS (IDLE, SPEAKING)
-  const [avatarId,setAvatarId]=useState("lisa_casual_1080"); // AVATAR ID
+  const [avatarId,setAvatarId]=useState("lisa_casual_1080_finetuned_pl"); // AVATAR ID
   const [voiceId,setVoiceId]=useState("7306"); // AVATAR ID
   const scrollBottomRef = useRef(null); // REFERENCE FOR THE LAST MESSAGE IN CHAT HISTORY USEFULL TO SCOLL TO BOTTOM ON EVERY NEW MESSAGE RECEIVED
   const [chatHistory,setChatHistory]=useState([]) // CHAT HISTORY STATE
@@ -89,10 +89,12 @@ function Chat() {
   
   // FUNCTION THAT EXECUTE BASED ON LOCAL AVATAR AND AVATAR ID CHANGE
   useEffect(()=>{
-    
-    if(avatarProvider==="local"){
-      getAvatarIdleVideo(avatarId)
-    } 
+    if(avatarConnectionStatus==="connected"){
+      if(avatarProvider==="local"){
+        getAvatarIdleVideo(avatarId)
+      } 
+    }
+  
 
   },[avatarProvider,avatarId])
  
@@ -296,7 +298,16 @@ useEffect(() => {
   }
 }, [currentVideo]); */}
 
-
+useEffect(() => {
+  // Check if videoQueue has elements
+  if (videoQueue.length > 0) {
+    setCurrentVideo(videoQueue[0]);
+    setNextVideo(videoQueue[1] || null); // Preload the next video
+  } else {
+    setCurrentVideo(null);
+    setNextVideo(null); // Clear if the queue is empty
+  }
+}, [videoQueue]); 
 
 useEffect(() => {
 
@@ -310,8 +321,12 @@ useEffect(() => {
         // Show the current video element and hide the other
     videoElement.play(); // Play the video when it's ready
     videoElement.style.display = 'block';
+    otherVideoElement.style.display = 'none'; // Hide the non-playing video
+
 
   };
+
+ 
 
   const handleVideoEnd = () => {
 
@@ -329,30 +344,24 @@ useEffect(() => {
       prevRef === avatarVideoRef1 ? avatarVideoRef2 : avatarVideoRef1
     );
 
-    // Set current and next videos from the queue
-    setCurrentVideo(videoQueue[1] || null); // Set the current video to the next one
-    setNextVideo(videoQueue[2] || null); // Preload the next video
   };
 
   if (currentVideo) {
-
 
 
     // Set and load the video for the current video element
     videoElement.src = currentVideo;
     videoElement.load();
     
-
-    otherVideoElement.style.display = 'none'; // Hide the non-playing video
+    videoElement.addEventListener('canplaythrough', handleCanPlayThrough);
+    videoElement.addEventListener('ended', handleVideoEnd);
 
     // Preload the next video on the other (hidden) video element
     if (nextVideo) {
       otherVideoElement.src = nextVideo;
+      console.log("NEXT VIDEO")
       otherVideoElement.load();
     }
-
-    videoElement.addEventListener('canplaythrough', handleCanPlayThrough);
-    videoElement.addEventListener('ended', handleVideoEnd);
 
     // Clean up the event listeners when the component unmounts or currentVideo changes
     return () => {
@@ -369,7 +378,14 @@ useEffect(() => {
   }
 }, [currentVideo, currentVideoRef]);
 
+useEffect(()=>{
 
+  console.log("VIDEO QUEUE",videoQueue)
+
+  console.log("CURRENT VIDEO",currentVideo)
+
+  console.log("NEXT VIDEO",nextVideo)
+},[videoQueue,currentVideo,nextVideo])
  
   
   // FUNCTION TO SCROLL AT THE BOTTOM OF CHAT HISTORY
@@ -401,6 +417,7 @@ useEffect(() => {
       getAvatarIdleVideo(avatarId)
       setAvatarStatus("idle")
       setAvatarConnectionStatus("connected")
+
     } 
 
     else if(avatarProvider==="heygen"){
@@ -605,10 +622,6 @@ useEffect(() => {
 
 <video id="avatar-video-speaking" ref={avatarVideoRef2} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%" preload='auto' ></video>
 
-
-{nextVideo && (
-        <video style={{ display: 'none' }} src={nextVideo} preload="auto"></video>
-      )}
 </>
 }
 
