@@ -39,8 +39,8 @@ function Chat() {
 
 
   // HEYGEN AVATAR 
-  const[heygenAvatar,setHeygenAvatar]=useState();
-  const heygenAvatarVideoRef=useRef(null);
+  const[heygenAvatar,setHeygenAvatar]=useState(); // HEYGEN STREAMING AVATAR OBJECT
+  const heygenAvatarVideoRef=useRef(null); // HEYGEN VIDEO OBJECT
   const [heygenStream,setHeygenStream]=useState(undefined); // HEYGEN STREAM OBBJECT
   const [heygenSessionData, setHeygenSessionData] = useState(undefined); // HEYGEN AVATAR SESSION DATA
 
@@ -80,8 +80,16 @@ function Chat() {
     }
 
   },[avatarProvider])
+  
+  // FUNCTION THAT EXECUTE BASED ON LOCAL AVATAR AND AVATAR ID CHANGE
+  useEffect(()=>{
+    
+    if(avatarProvider==="local"){
+      getAvatarIdleVideo(avatarId)
+    } 
 
-
+  },[avatarProvider,avatarId])
+ 
   // START SESSION FUNCTION FOR HEYGEN 
   async function startHeygenSession() {
     //setIsLoadingSession(true);
@@ -99,7 +107,6 @@ function Chat() {
 
     if(heygenAvatar){
       console.log(heygenAvatar)
-
 
     heygenAvatar?.on(StreamingEvents.AVATAR_START_TALKING, (e) => {
       console.log("heygenAvatar started talking", e);
@@ -351,7 +358,7 @@ useEffect(() => {
     try{
 
       const video= await getAvatarIdleVideoAPI(avatarId)  
-      setAvatarIdleVideo(video?.video_url)
+      setAvatarIdleVideo(video)
 
     }catch (error) {
       console.error('Error fetching video and text:', error);
@@ -514,7 +521,7 @@ useEffect(() => {
 <>
 <video id="avatar-video-idle" src={avatarIdleVideo} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0,}} width="100%" height="100%" autoPlay muted loop preload='auto'></video>
 
-<video id="avatar-video-speaking" ref={avatarVideoRef} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%" autoPlay preload='auto' ></video>
+<video id="avatar-video-speaking" ref={avatarVideoRef} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0}} width="100%" height="100%" preload='auto' ></video>
 
 {nextVideo && (
         <video style={{ display: 'none' }} src={nextVideo} preload="auto"></video>

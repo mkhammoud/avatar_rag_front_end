@@ -63,8 +63,6 @@ async function getAvatarIdleVideoAPI(avatarId,avatarProvider){
     console.log(backend_url)  
     const formData= new FormData();
     formData.append("avatarId",avatarId)
-
-    // MIGHT NOT BE NEEDED AS ONLY LOCAL VIDEO PROVIDER WILL HAVE A SEPERATE IDLE VIDEO (OR IT CAN BE USED IN ADDITIONAL TO STREAMING LIVE SERVER FOR COST SAVING)
     formData.append("avatarProvider",avatarProvider) 
     
     const response= await fetch(`${backend_url}getIdleAvatar`, {
@@ -72,8 +70,10 @@ async function getAvatarIdleVideoAPI(avatarId,avatarProvider){
       body: formData,
     });
   
-    const data= await response.json();
-    return data
+    const blob = await response.blob();
+    const videoUrl = URL.createObjectURL(blob);
+
+    return videoUrl
   
   }catch (error) {
     console.error('Error fetching video and text:', error);

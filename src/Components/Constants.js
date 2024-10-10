@@ -37,6 +37,10 @@ const HeygenAvatars = [
   ];
 
 const LocalAvatars = [
+  {
+    id: "lisa_casual_1080_finetuned_pl",
+    name: "Lisa Casual Finetuned FHD",
+  },
     {
       id: "lisa_casual_1080",
       name: "Lisa Casual Sitting FHD",
