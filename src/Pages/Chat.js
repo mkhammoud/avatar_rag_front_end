@@ -309,13 +309,26 @@ useEffect(() => {
   }
 }, [videoQueue]); 
 
+useEffect(()=>{
+
+  const otherVideoRef = currentVideoRef === avatarVideoRef1 ? avatarVideoRef2 : avatarVideoRef1;
+  const otherVideoElement = otherVideoRef?.current;
+
+  // Preload the next video on the other (hidden) video element
+  if (nextVideo) {
+    otherVideoElement.src = nextVideo;
+    console.log("NEXT VIDEO")
+    otherVideoElement.load();
+}
+
+},[nextVideo])
+
 useEffect(() => {
 
 
   const videoElement = currentVideoRef.current;
-  const otherVideoRef =
-    currentVideoRef === avatarVideoRef1 ? avatarVideoRef2 : avatarVideoRef1;
-  const otherVideoElement = otherVideoRef.current;
+  const otherVideoRef = currentVideoRef === avatarVideoRef1 ? avatarVideoRef2 : avatarVideoRef1;
+  const otherVideoElement = otherVideoRef?.current;
 
   const handleCanPlayThrough = () => {
         // Show the current video element and hide the other
@@ -323,10 +336,8 @@ useEffect(() => {
     videoElement.style.display = 'block';
     otherVideoElement.style.display = 'none'; // Hide the non-playing video
 
-
   };
 
- 
 
   const handleVideoEnd = () => {
 
@@ -346,6 +357,8 @@ useEffect(() => {
 
   };
 
+
+
   if (currentVideo) {
 
 
@@ -355,13 +368,6 @@ useEffect(() => {
     
     videoElement.addEventListener('canplaythrough', handleCanPlayThrough);
     videoElement.addEventListener('ended', handleVideoEnd);
-
-    // Preload the next video on the other (hidden) video element
-    if (nextVideo) {
-      otherVideoElement.src = nextVideo;
-      console.log("NEXT VIDEO")
-      otherVideoElement.load();
-    }
 
     // Clean up the event listeners when the component unmounts or currentVideo changes
     return () => {
@@ -376,7 +382,7 @@ useEffect(() => {
 
   
   }
-}, [currentVideo, currentVideoRef]);
+}, [currentVideo , currentVideoRef]);
 
 useEffect(()=>{
 
@@ -538,8 +544,15 @@ useEffect(()=>{
  
 
  {/* AVATAR VIDEO SECTION */}
-  
-  <Box width={"80%"} height={"80%"} >
+ <Box display={"flex"} width={"80%"}>
+
+ <img src={`${process.env.REACT_APP_BACKEND_URL}static/logo.png`} width={"300px"} /> 
+
+ </Box>
+
+
+  <Box width={"80%"} height={"70%"} >
+
 
 <Box display={"flex"}  alignItems={"center"} gap={2} >
 {avatarConnectionStatus ==="connected" &&
