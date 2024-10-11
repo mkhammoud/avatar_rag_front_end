@@ -7,6 +7,27 @@ red:"#FF6C6C",
 grey:"#F0F4F8"
 }
 
+
+const AzureVoices=[
+  {name:"Ava",id:"en-US-AvaMultilingualNeural"},
+  {name:"Andrew",id:"en-US-AndrewMultilingualNeural"},
+ ]
+ 
+ const AzureAvatars = [
+     {
+       id: "lisa",
+       name: "Lisa",
+       style:"casual-sitting"
+     },
+     {
+       id: "harry",
+       name: "Harry",
+       style:"business"
+     },
+
+   ];
+ 
+
 const HeyGenVoices=[
  {name:"Amber - Friendly",id:"131a436c47064f708210df6628ef8f32"},
  {name:"Tony - Professional",id:"1ae3be1e24894ccabdb4d8139399f721"},
@@ -68,4 +89,4 @@ const LocalAvatars = [
   ];
 
 
-export {ThemeColors,HeygenAvatars,HeyGenVoices,LocalAvatars,LocalVoices}
+export {ThemeColors,HeygenAvatars,HeyGenVoices,LocalAvatars,LocalVoices,AzureVoices,AzureAvatars}

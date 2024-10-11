@@ -1,0 +1,13 @@
+Start of experiment:
+
+Current charges: 413.15 CAD
+
+Speech: CA$294.74
+
+Seconds Synthesized: 0
+
+Characters Synthesized: 0
+
+------------------------
+
+End of Experiment:

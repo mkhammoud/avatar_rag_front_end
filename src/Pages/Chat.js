@@ -4,8 +4,8 @@ import Grid from '@mui/material/Grid2';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import { useEffect, useState,useRef } from 'react';
-import { getAvatarIdleVideoAPI, handleUserQueryAPI, startSessionAPI ,getHeygenAccessTokenAPI} from '../Components/Api';
-import { gradient_background, HeygenAvatars, HeyGenVoices, LocalAvatars, LocalVoices, ThemeColors } from '../Components/Constants';
+import { getAvatarIdleVideoAPI, handleUserQueryAPI, startSessionAPI ,getHeygenAccessTokenAPI, fetchAzureSessionDataAPI} from '../Components/Api';
+import { AzureAvatars, AzureVoices, gradient_background, HeygenAvatars, HeyGenVoices, LocalAvatars, LocalVoices, ThemeColors } from '../Components/Constants';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -17,6 +17,7 @@ import StreamingAvatar, {AvatarQuality, StreamingEvents, TaskType, VoiceEmotion}
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select'
+import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
 
 function Chat() {
 
@@ -30,7 +31,7 @@ function Chat() {
   const scrollBottomRef = useRef(null); // REFERENCE FOR THE LAST MESSAGE IN CHAT HISTORY USEFULL TO SCOLL TO BOTTOM ON EVERY NEW MESSAGE RECEIVED
   const [chatHistory,setChatHistory]=useState([]) // CHAT HISTORY STATE
   
-  
+  // LOCAL AVATAR STATES
   const [videoQueue, setVideoQueue] = useState([]); // VIDEO QUEUE
   const [currentVideo, setCurrentVideo] = useState(null); // CURRENT VIDEO
   const [nextVideo, setNextVideo] = useState(null);  // State to hold the next video URL
@@ -39,7 +40,7 @@ function Chat() {
   const avatarVideoRef2=useRef(null); // VIDEO OBJECT REFERENCE
   const [currentVideoRef, setCurrentVideoRef] = useState(avatarVideoRef1);
 
-
+  // CONFIGURATION STATES
   const [voices,setVoices]=useState(LocalVoices); // LIST OF VOICES
   const [avatars,setAvatars]=useState(LocalAvatars); // LIST OF AVATARS
 
@@ -49,6 +50,140 @@ function Chat() {
   const heygenAvatarVideoRef=useRef(null); // HEYGEN VIDEO OBJECT
   const [heygenStream,setHeygenStream]=useState(undefined); // HEYGEN STREAM OBBJECT
   const [heygenSessionData, setHeygenSessionData] = useState(undefined); // HEYGEN AVATAR SESSION DATA
+
+
+  //FUNCTION GET AZURE STYLE 
+  function getAvatarStyleById(id) {
+    for (let avatar of AzureAvatars) {
+      if (avatar.id === id) {
+        return avatar.style;
+      }
+    }
+    return null; // return null if the id is not found
+  }
+
+  // AZURE STATE
+  const [azureSpeechSynthesizer, setAzureSpeechSynthesizer] = useState(null);
+  const [azureSessionData,setAzureSessionData]=useState(null);
+  const azurePeerConnectionRef = useRef(null);
+  const azureVideoPlayerRef = useRef(null);
+  const azureAudioPlayerRef = useRef(null);
+
+  // HANDLE AZURE START 
+  async function createAzureSythesizer(){
+    // Initialize speech configuration
+    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(process.env.REACT_APP_AZURE_SPEECH_KEY, process.env.REACT_APP_AZURE_SPEECH_REGION);
+
+    speechConfig.speechSynthesisVoiceName = voiceId;
+
+    // Initialize avatar configuration
+    const style = getAvatarStyleById(avatarId);
+
+    const avatarConfig = new SpeechSDK.AvatarConfig(avatarId,style);
+
+    // Create avatar synthesizer
+    const avatarSynthesizer = new SpeechSDK.AvatarSynthesizer(speechConfig, avatarConfig);
+    setAzureSpeechSynthesizer(avatarSynthesizer);
+   
+}
+
+
+async function handleAzureAvatarSpeak(text) {
+  if(azureSpeechSynthesizer){
+
+    if(azureAudioPlayerRef.current){
+      const audioElement = azureAudioPlayerRef.current;
+      audioElement.muted=false;
+  
+    }
+
+    azureSpeechSynthesizer.speakTextAsync(text).then(
+      (result) => {
+          if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+              console.log("Speech and avatar synthesized to video stream.")
+          } else {
+              console.log("Unable to speak. Result ID: " + result.resultId)
+              if (result.reason === SpeechSDK.ResultReason.Canceled) {
+                  let cancellationDetails = SpeechSDK.CancellationDetails.fromResult(result)
+                  console.log(cancellationDetails.reason)
+                  if (cancellationDetails.reason === SpeechSDK.CancellationReason.Error) {
+                      console.log(cancellationDetails.errorDetails)
+                  }
+              }
+          }
+  }).catch((error) => {
+      console.log(error)
+      azureSpeechSynthesizer.close()
+  });
+  }
+}
+
+
+async function fetchAzureSessionData(){
+  const data=await fetchAzureSessionDataAPI();
+  console.log(data)
+  setAzureSessionData(data);
+}
+
+async function handleAzureStart(){
+   await fetchAzureSessionData();
+   await createAzureSythesizer();
+}
+
+useEffect(()=>{
+
+  if(azureSessionData && azureSpeechSynthesizer && azureVideoPlayerRef.current && azureAudioPlayerRef.current ){
+  
+          // Create WebRTC peer connection
+      azurePeerConnectionRef.current = new RTCPeerConnection({
+            iceServers: [{
+                urls: azureSessionData.Urls,
+                username: azureSessionData.Username,
+                credential: azureSessionData.Password,
+            }],
+        });
+
+        console.log("PEER CONNECTION REF",azurePeerConnectionRef.current )
+
+        // Handle incoming video/audio tracks
+        azurePeerConnectionRef.current.ontrack = (event) => {
+            if (event.track.kind === 'video') {
+              console.log("VIDEO ELEMENT AND STREAM",event.streams[0] )
+
+                    const videoElement = azureVideoPlayerRef.current;
+                    videoElement.muted=true;
+                    videoElement.srcObject = event.streams[0];
+                    videoElement.autoplay = true;
+                    videoElement.playsInLine=true;
+                   
+
+            }
+
+            if (event.track.kind === 'audio') {
+                if (azureAudioPlayerRef.current) {
+                  console.log("AUDIO ELEMENT AND STREAM",event.streams[0] )
+
+                    const audioElement = azureAudioPlayerRef.current;
+                    audioElement.muted=true;
+                    audioElement.srcObject = event.streams[0];
+                    audioElement.autoplay = true;
+
+                }
+            }
+        };
+
+        // Offer to receive one video track, and one audio track
+        azurePeerConnectionRef.current.addTransceiver('video', { direction: 'sendrecv' });
+        azurePeerConnectionRef.current.addTransceiver('audio', { direction: 'sendrecv' });
+         
+        // Start avatar and establish WebRTC connection
+        azureSpeechSynthesizer.startAvatarAsync(azurePeerConnectionRef.current)
+            .then(() => {console.log("Avatar started."); setAvatarConnectionStatus("connected")})
+            .catch(error => console.log("Avatar failed to start. Error: ", error));
+  }
+
+
+},[azureSessionData,azureSpeechSynthesizer,azureVideoPlayerRef])
 
 
   // FUNCTION THAT TRACK CHANGE OF AVATAR PROVIDER
@@ -83,6 +218,12 @@ function Chat() {
 
       setAvatarId(HeygenAvatars[0].id)
        setVoiceId(HeyGenVoices[0].id)
+    } else if(avatarProvider==="azure"){
+      setAvatars(AzureAvatars)
+      setVoices(AzureVoices)
+
+      setAvatarId(AzureAvatars[0].id)
+       setVoiceId(AzureVoices[0].id)
     }
 
   },[avatarProvider])
@@ -183,6 +324,8 @@ function Chat() {
     });
     //setIsLoadingRepeat(false);
   }
+  
+
   async function handleHeygenAvatarInterrupt() {
     if (!heygenAvatar) {
       console.log("heygenAvatar API not initialized");
@@ -428,6 +571,8 @@ useEffect(()=>{
 
     else if(avatarProvider==="heygen"){
       await startHeygenSession();
+    } else if(avatarProvider==="azure"){
+      await handleAzureStart();
     }
 
   }
@@ -442,6 +587,15 @@ useEffect(()=>{
   } 
 
 
+  // FUNCTION TO STOP AZURE
+  const handleAzureStop= async ()=>{
+    if(azureSpeechSynthesizer){
+      azureSpeechSynthesizer.close();
+      setAvatarConnectionStatus("disconnected");
+    }
+  }
+
+
   // STOP SESSION BUTTON CLICK EVENT
   const handleStopSession= async ()=>{
     
@@ -449,6 +603,8 @@ useEffect(()=>{
       hanldeStopLocalAvatar()
     } else if(avatarProvider==="heygen"){
       await endHeygenAvatarSession();
+    } else if(avatarProvider==="azure"){
+      await handleAzureStop()
     }
   
  
@@ -528,12 +684,11 @@ useEffect(()=>{
 
       if(avatarProvider==="heygen"){
         await handleHeygenAvatarSpeak(result?.text_response);
+      }else if(avatarProvider==="azure"){
+        await handleAzureAvatarSpeak(result?.text_response)
       }
 
     }
-
-  
-
 
   }
 
@@ -640,10 +795,18 @@ useEffect(()=>{
 
 {avatarProvider==="heygen" &&
 <>
-<video id="avatar-video-idle" ref={heygenAvatarVideoRef} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0,}} width="100%" height="100%"></video>
+<video id="heygen-avatar" ref={heygenAvatarVideoRef} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0,}} width="100%" height="100%"></video>
 
 </>
 }
+
+{avatarProvider==="azure" &&
+<>
+<video id="azure-avatar" ref={azureVideoPlayerRef} style={{objectFit:"cover",borderRadius:"50px",position: "absolute", top: 0,left: 0,}} width="100%" height="100%"  loop preload='auto'></video>
+<audio id="azure-audio" ref={azureAudioPlayerRef} muted />
+</>
+}
+
 
 
   </Box>
